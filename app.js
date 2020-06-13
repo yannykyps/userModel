@@ -3,13 +3,13 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const ejs = require("ejs");
-const bcrypt = require("bcrypt");
-const saltRounds = 10;
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const passport = require("passport");
 const findOrCreate = require("mongoose-findorcreate");
 const passportLocalMongoose = require("passport-local-mongoose");
 const session = require("express-session");
+
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 const app = express();
 
@@ -19,6 +19,12 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(express.static("public"));
 
+app.use(session({
+  secret: process.env.SECRET,
+  resave: false,
+  saveUninitialized: false
+}));
+
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -26,11 +32,13 @@ mongoose.connect("mongodb://localhost:27017/userModelDB", {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
+mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  facebookId: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -49,6 +57,32 @@ passport.deserializeUser(function(id, done) {
     done(err, user);
   });
 });
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/welcome",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id, username: profile.id}, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_ID,
+    clientSecret: process.env.FACEBOOK_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/welcome"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id, username: profile.id}, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 app.get("/", function(req, res){
   res.render("home");
@@ -69,7 +103,17 @@ app.get("/auth/google",
 app.get("/auth/google/welcome",
   passport.authenticate("google", { failureRedirect: "/login" }),
   function(req, res) {
-    // Successful authentication, redirect secrets.
+    // Successful authentication, redirect welcome.
+    res.redirect('/welcome');
+  });
+
+app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+app.get('/auth/facebook/welcome',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
     res.redirect('/welcome');
   });
 
@@ -85,23 +129,6 @@ app.get("/auth/google/welcome",
     });
   });
 
-// app.post("/register", function(req, res){
-//
-//   bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
-//     const newUser = new User({
-//       email: req.body.username,
-//       password: hash
-//     });
-//
-//     newUser.save(function(err){
-//       if (err) {
-//         console.log(err);
-//       } else {
-//         res.render("welcome");
-//       }
-//     });
-//   });
-// });
 app.post("/register", function(req, res){
 
 User.register({username: req.body.username}, req.body.password, function(err, user){
@@ -117,20 +144,29 @@ User.register({username: req.body.username}, req.body.password, function(err, us
 });
 });
 
+app.post("/login", function(req, res){
 
-passport.use(new GoogleStrategy({
-    clientID: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/google/welcome",
-    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    console.log(profile);
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
-      return cb(err, user);
-    });
+const user = new User({
+  username: req.body.username,
+  password: req.body.password
+});
+
+req.login(user, function (err){
+  if (err){
+    console.log(err);
+  } else {
+    passport.authenticate("local")(req, res, function(){
+    res.redirect("/welcome");
+  });
   }
-));
+});
+
+});
+
+app.get("/logout", function (req, res){
+  req.logout();
+  res.redirect("/");
+});
 
 app.listen(3000, function() {
   console.log("Server started on port 3000");
