@@ -38,7 +38,8 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
-  facebookId: String
+  facebookId: String,
+  secret: [String]
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -124,6 +125,34 @@ app.get('/auth/facebook/welcome',
       } else {
         if (foundUsers) {
           res.render("welcome", {usersWithSecrets: foundUsers});
+        }
+      }
+    });
+  });
+
+  app.get("/submit", function (req, res){
+    if (req.isAuthenticated()){
+      res.render("submit");
+    } else {
+      res.redirect("/login");
+    }
+  });
+
+  app.post("/submit", function (req, res) {
+    const submittedSecret = req.body.secret;
+
+    console.log(req.user.id);
+
+    User.findById(req.user.id, function(err, foundUser){
+      if (err) {
+        console.log(err);
+      } else {
+        if (foundUser) {
+          foundUser.secret.push(submittedSecret);
+          //foundUser.secret = submittedSecret;
+          foundUser.save(function(){
+            res.redirect("/welcome");
+          });
         }
       }
     });
