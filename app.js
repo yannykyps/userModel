@@ -36,10 +36,11 @@ mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
   email: String,
+  name: String,
   password: String,
   googleId: String,
   facebookId: String,
-  secret: [String]
+  hobbies: [String]
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -67,7 +68,7 @@ passport.use(new GoogleStrategy({
   },
   function(accessToken, refreshToken, profile, cb) {
     console.log(profile);
-    User.findOrCreate({ googleId: profile.id, username: profile.id}, function (err, user) {
+    User.findOrCreate({ googleId: profile.id, username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
@@ -79,7 +80,7 @@ passport.use(new FacebookStrategy({
     callbackURL: "http://localhost:3000/auth/facebook/welcome"
   },
   function(accessToken, refreshToken, profile, cb) {
-    User.findOrCreate({ facebookId: profile.id, username: profile.id}, function (err, user) {
+    User.findOrCreate({ facebookId: profile.id, username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
@@ -118,13 +119,14 @@ app.get('/auth/facebook/welcome',
     res.redirect('/welcome');
   });
 
-  app.get("/welcome", function (req, res) {
-    User.find({"secret": {$ne: null}}, function(err, foundUsers){
+app.get("/welcome", function (req, res) {
+  console.log("hello" + req.user.name);
+    User.find({"hobbies": {$ne: null}}, function(err, foundUsers){
       if (err) {
         console.log(err);
       } else {
         if (foundUsers) {
-          res.render("welcome", {usersWithSecrets: foundUsers});
+          res.render("welcome", {usersHobbies: foundUsers, user: req.user.name});
         }
       }
     });
@@ -139,7 +141,7 @@ app.get('/auth/facebook/welcome',
   });
 
   app.post("/submit", function (req, res) {
-    const submittedSecret = req.body.secret;
+    const submittedHobby = req.body.hobby;
 
     console.log(req.user.id);
 
@@ -148,8 +150,7 @@ app.get('/auth/facebook/welcome',
         console.log(err);
       } else {
         if (foundUser) {
-          foundUser.secret.push(submittedSecret);
-          //foundUser.secret = submittedSecret;
+          foundUser.hobbies.push(submittedHobby);
           foundUser.save(function(){
             res.redirect("/welcome");
           });
