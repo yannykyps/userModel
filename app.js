@@ -37,9 +37,8 @@ mongoose.set("useCreateIndex", true);
 const userSchema = new mongoose.Schema({
   email: String,
   name: String,
+  username: String,
   password: String,
-  googleId: String,
-  facebookId: String,
   hobbies: [String]
 });
 
@@ -67,8 +66,7 @@ passport.use(new GoogleStrategy({
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
   function(accessToken, refreshToken, profile, cb) {
-    console.log(profile);
-    User.findOrCreate({ googleId: profile.id, username: profile.id, name: profile.displayName}, function (err, user) {
+    User.findOrCreate({ username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
@@ -80,7 +78,7 @@ passport.use(new FacebookStrategy({
     callbackURL: "http://localhost:3000/auth/facebook/welcome"
   },
   function(accessToken, refreshToken, profile, cb) {
-    User.findOrCreate({ facebookId: profile.id, username: profile.id, name: profile.displayName}, function (err, user) {
+    User.findOrCreate({ username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
@@ -143,8 +141,6 @@ app.get("/welcome", function (req, res) {
   app.post("/submit", function (req, res) {
     const submittedHobby = req.body.hobby;
 
-    console.log(req.user.id);
-
     User.findById(req.user.id, function(err, foundUser){
       if (err) {
         console.log(err);
@@ -160,8 +156,9 @@ app.get("/welcome", function (req, res) {
   });
 
 app.post("/register", function(req, res){
-
-User.register({username: req.body.username}, req.body.password, function(err, user){
+// let username = req.body.username;
+// let name = username.substring(0, username.lastIndexOf("@"));
+User.register({username: username}, req.body.password, function(err, user){
   if (err) {
     console.log(err);
     res.redirect("/register");
