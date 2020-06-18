@@ -7,12 +7,9 @@
     <hr>
     <p class="lead">These are your hobbies</p>
 
-    <% usersHobbies.forEach(function(user){ %>
-      <% for (i=0; i < user.hobbies.length; i++){ %>
-      <p class="hobby-text lead"> <%= user.hobbies[i] %> </p>
-    <% }}); %>
-
-    <hr>
+    <% userHobbies.forEach(function(value, i){ %>
+      <p class="hobby-text lead"> <%= userHobbies[i] %> </p>
+    <% }); %>
 
     <a class="btn btn-light btn-lg" href="/logout" role="button">Log Out</a>
     <a class="btn btn-dark btn-lg" href="/submit" role="button">Submit a Hobby</a>

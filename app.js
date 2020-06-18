@@ -66,6 +66,7 @@ passport.use(new GoogleStrategy({
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
   function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
     User.findOrCreate({ username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
@@ -78,6 +79,7 @@ passport.use(new FacebookStrategy({
     callbackURL: "http://localhost:3000/auth/facebook/welcome"
   },
   function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
     User.findOrCreate({ username: profile.id, name: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
@@ -118,42 +120,35 @@ app.get('/auth/facebook/welcome',
   });
 
 app.get("/welcome", function (req, res) {
-  console.log("hello" + req.user.name);
-    User.find({"hobbies": {$ne: null}}, function(err, foundUsers){
-      if (err) {
-        console.log(err);
-      } else {
-        if (foundUsers) {
-          res.render("welcome", {usersHobbies: foundUsers, user: req.user.name});
-        }
-      }
-    });
+
+  res.render("welcome", {userHobbies: req.user.hobbies, user: req.user.name});
   });
 
-  app.get("/submit", function (req, res){
-    if (req.isAuthenticated()){
-      res.render("submit");
+
+app.get("/submit", function (req, res){
+  if (req.isAuthenticated()){
+    res.render("submit");
+  } else {
+    res.redirect("/login");
+    }
+});
+
+app.post("/submit", function (req, res) {
+  const submittedHobby = req.body.hobby;
+
+  User.findById(req.user.id, function(err, foundUser){
+    if (err) {
+      console.log(err);
     } else {
-      res.redirect("/login");
+      if (foundUser) {
+        foundUser.hobbies.push(submittedHobby);
+        foundUser.save(function(){
+          res.redirect("/welcome");
+        });
+      }
     }
   });
-
-  app.post("/submit", function (req, res) {
-    const submittedHobby = req.body.hobby;
-
-    User.findById(req.user.id, function(err, foundUser){
-      if (err) {
-        console.log(err);
-      } else {
-        if (foundUser) {
-          foundUser.hobbies.push(submittedHobby);
-          foundUser.save(function(){
-            res.redirect("/welcome");
-          });
-        }
-      }
-    });
-  });
+});
 
 app.post("/register", function(req, res){
 // let username = req.body.username;
