@@ -7,6 +7,7 @@ const passport = require("passport");
 const findOrCreate = require("mongoose-findorcreate");
 const passportLocalMongoose = require("passport-local-mongoose");
 const session = require("express-session");
+const { check, validationResult } = require("express-validator");
 
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
@@ -150,10 +151,21 @@ app.post("/submit", function (req, res) {
   });
 });
 
-app.post("/register", function(req, res){
-// let username = req.body.username;
-// let name = username.substring(0, username.lastIndexOf("@"));
-User.register({username: username}, req.body.password, function(err, user){
+app.post("/register", [
+  // username must be an email
+  check('username').isEmail(),
+  // password must be at least 8 chars long
+  check('password').isLength({ min: 8 }).withMessage("Must be at least 8 chars long and contain a number")
+  .matches(/\d/).withMessage("must contain a number")
+], function(req, res){
+  // Finds the validation errors in this request and wraps them in an object with handy functions
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    //res.redirect("/register")
+    return res.status(422).json({ errors: errors.array() });
+  }
+
+User.register({username: req.body.username}, req.body.password, function(err, user){
   if (err) {
     console.log(err);
     res.redirect("/register");
@@ -165,6 +177,22 @@ User.register({username: username}, req.body.password, function(err, user){
   }
 });
 });
+
+// app.post("/register", function(req, res){
+// // let username = req.body.username;
+// // let name = username.substring(0, username.lastIndexOf("@"));
+// User.register({username: username}, req.body.password, function(err, user){
+//   if (err) {
+//     console.log(err);
+//     res.redirect("/register");
+//   } else {
+//     passport.authenticate("local")(req, res, function(){
+//       res.redirect("/welcome");
+//     });
+//
+//   }
+// });
+// });
 
 app.post("/login", function(req, res){
 
