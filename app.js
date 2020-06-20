@@ -96,8 +96,13 @@ app.get("/login", function(req, res){
 });
 
 app.get("/register", function(req, res){
-  res.render("register");
+  res.render("register", {error: ""});
 });
+
+app.get("/register:error", function(req, res){
+  res.render("register", {error: "Password must contain a minimum 8 characters, contain a number and uppercase"});
+});
+
 
 app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile"] })
@@ -155,15 +160,15 @@ app.post("/register", [
   // username must be an email
   check('username').isEmail(),
   // password must be at least 8 chars long
-  check('password').isLength({ min: 8 }).withMessage("Must be at least 8 chars long and contain a number")
-  .matches(/\d/).withMessage("must contain a number")
+  check('password').isLength({ min: 8 })
+  .matches(/\d/) //must contain number
+  .matches(/[A-Z]/) //must contain Uppercase
 ], function(req, res){
   // Finds the validation errors in this request and wraps them in an object with handy functions
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    //res.redirect("/register")
-    return res.status(422).json({ errors: errors.array() });
-  }
+    res.redirect("/register:error") //not creating a json object from error, just redirecting to register
+  } else {
 
 User.register({username: req.body.username}, req.body.password, function(err, user){
   if (err) {
@@ -173,26 +178,10 @@ User.register({username: req.body.username}, req.body.password, function(err, us
     passport.authenticate("local")(req, res, function(){
       res.redirect("/welcome");
     });
-
   }
 });
+}
 });
-
-// app.post("/register", function(req, res){
-// // let username = req.body.username;
-// // let name = username.substring(0, username.lastIndexOf("@"));
-// User.register({username: username}, req.body.password, function(err, user){
-//   if (err) {
-//     console.log(err);
-//     res.redirect("/register");
-//   } else {
-//     passport.authenticate("local")(req, res, function(){
-//       res.redirect("/welcome");
-//     });
-//
-//   }
-// });
-// });
 
 app.post("/login", function(req, res){
 
