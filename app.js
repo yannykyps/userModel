@@ -12,6 +12,8 @@ const { check, validationResult } = require("express-validator");
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 
+let validationError = [];
+
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -96,13 +98,8 @@ app.get("/login", function(req, res){
 });
 
 app.get("/register", function(req, res){
-  res.render("register", {error: ""});
+  res.render("register", {error: validationError});
 });
-
-app.get("/register:error", function(req, res){
-  res.render("register", {error: "Password must contain a minimum 8 characters, contain a number and uppercase"});
-});
-
 
 app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile"] })
@@ -157,22 +154,26 @@ app.post("/submit", function (req, res) {
 });
 
 app.post("/register", [
-  // username must be an email
   check('username').isEmail(),
-  // password must be at least 8 chars long
-  check('password').isLength({ min: 8 })
-  .matches(/\d/) //must contain number
-  .matches(/[A-Z]/) //must contain Uppercase
-], function(req, res){
-  // Finds the validation errors in this request and wraps them in an object with handy functions
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res.redirect("/register:error") //not creating a json object from error, just redirecting to register
+  check('password').isLength({ min: 8 }).withMessage("Must be at least 8 chars long")
+  .matches(/\d/).withMessage("Must also contain a number")
+  .matches(/[A-Z]/).withMessage("Must also contain at least one uppercase letter")
+], (req, res, next) => {
+
+const errorFormatter = ({ location, msg, param, value, nestedErrors }) => {
+    return `[${param}]: ${msg}`;
+  };
+  const err = validationResult(req).formatWith(errorFormatter);
+  if (!err.isEmpty()) {
+    console.log(err.array());
+    validationError = err.array();
+    res.redirect("/register")
   } else {
 
 User.register({username: req.body.username}, req.body.password, function(err, user){
   if (err) {
     console.log(err);
+    validationError = [err];
     res.redirect("/register");
   } else {
     passport.authenticate("local")(req, res, function(){
