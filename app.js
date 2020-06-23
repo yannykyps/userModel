@@ -123,7 +123,6 @@ app.get('/auth/facebook/welcome',
   });
 
 app.get("/welcome", function (req, res) {
-
   res.render("welcome", {userHobbies: req.user.hobbies, user: req.user.name});
   });
 
@@ -184,6 +183,7 @@ User.register({username: req.body.username}, req.body.password, function(err, us
     validationError = err;
     res.redirect("/register");
   } else {
+    validationError = ""; //setting error const back to ""
     passport.authenticate("local")(req, res, function(){
       res.redirect("/welcome");
     });
@@ -207,29 +207,12 @@ passport.authenticate('local', function(err, user, info) {
       return res.redirect('/login'); }
     req.logIn(user, function(err) {
       if (err) { return next(err); }
+      validationError = ""; //setting error const back to ""
       return res.redirect('/welcome');
     });
   })(req, res, next);
 });
 
-// app.post("/login", function(req, res){
-//
-// const user = new User({
-//   username: req.body.username,
-//   password: req.body.password
-// });
-//
-// req.login(user, function (err){
-//   if (err){
-//     console.log(err);
-//   } else {
-//     passport.authenticate("local")(req, res, function(){
-//     res.redirect("/welcome");
-//   });
-//   }
-// });
-//
-// });
 
 app.get("/logout", function (req, res){
   req.logout();
