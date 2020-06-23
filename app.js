@@ -94,7 +94,7 @@ app.get("/", function(req, res){
 });
 
 app.get("/login", function(req, res){
-  res.render("login");
+  res.render("login", {error: validationError});
 });
 
 app.get("/register", function(req, res){
@@ -193,24 +193,43 @@ User.register({username: req.body.username}, req.body.password, function(err, us
 
 });
 
-app.post("/login", function(req, res){
+app.post("/login", function(req, res, next){
 
 const user = new User({
   username: req.body.username,
   password: req.body.password
 });
 
-req.login(user, function (err){
-  if (err){
-    console.log(err);
-  } else {
-    passport.authenticate("local")(req, res, function(){
-    res.redirect("/welcome");
-  });
-  }
+passport.authenticate('local', function(err, user, info) {
+    if (err) { return next(err); }
+    if (!user) {
+      validationError = "Incorrect Username and/or Password";
+      return res.redirect('/login'); }
+    req.logIn(user, function(err) {
+      if (err) { return next(err); }
+      return res.redirect('/welcome');
+    });
+  })(req, res, next);
 });
 
-});
+// app.post("/login", function(req, res){
+//
+// const user = new User({
+//   username: req.body.username,
+//   password: req.body.password
+// });
+//
+// req.login(user, function (err){
+//   if (err){
+//     console.log(err);
+//   } else {
+//     passport.authenticate("local")(req, res, function(){
+//     res.redirect("/welcome");
+//   });
+//   }
+// });
+//
+// });
 
 app.get("/logout", function (req, res){
   req.logout();
