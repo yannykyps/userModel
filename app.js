@@ -7,12 +7,12 @@ const passport = require("passport");
 const findOrCreate = require("mongoose-findorcreate");
 const passportLocalMongoose = require("passport-local-mongoose");
 const session = require("express-session");
-const { check, validationResult } = require("express-validator");
+const { check, validationResult, body } = require("express-validator");
 
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 
-let validationError = [];
+let validationError = "";
 
 const app = express();
 
@@ -153,27 +153,35 @@ app.post("/submit", function (req, res) {
   });
 });
 
-app.post("/register", [
+app.post("/register",
+[
+  check("username").custom(value => {
+  return User.exists({username: value}).then(user => {
+    if (user) {
+      return Promise.reject('E-mail has already been registered');
+    }
+    })
+  }),
   check('username').isEmail(),
-  check('password').isLength({ min: 8 }).withMessage("Must be at least 8 chars long")
-  .matches(/\d/).withMessage("Must also contain a number")
-  .matches(/[A-Z]/).withMessage("Must also contain at least one uppercase letter")
+  check('password').isLength({ min: 8 }).withMessage("Password must be at least 8 chars long")
+  .matches(/\d/).withMessage("Password must also contain a number")
+  .matches(/[A-Z]/).withMessage("Password must also contain at least one uppercase letter")
 ], (req, res, next) => {
 
 const errorFormatter = ({ location, msg, param, value, nestedErrors }) => {
-    return `[${param}]: ${msg}`;
+    return `${msg}`;
   };
   const err = validationResult(req).formatWith(errorFormatter);
   if (!err.isEmpty()) {
     console.log(err.array());
-    validationError = err.array();
+    validationError = err.array({ onlyFirstError: true });
     res.redirect("/register")
   } else {
 
 User.register({username: req.body.username}, req.body.password, function(err, user){
   if (err) {
     console.log(err);
-    validationError = [err];
+    validationError = err;
     res.redirect("/register");
   } else {
     passport.authenticate("local")(req, res, function(){
@@ -182,6 +190,7 @@ User.register({username: req.body.username}, req.body.password, function(err, us
   }
 });
 }
+
 });
 
 app.post("/login", function(req, res){

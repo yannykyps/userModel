@@ -18,10 +18,8 @@
               <input type="password" class="form-control" name="password">
             </div>
             <div>
-              <% error.forEach(function(value, i){ %>
-                <p class="error"> <%= error[i] %> </p>
-              <% }); %>
-              <!-- <p class="error"> <%= error %> </p> -->
+
+              <p class="error"> <%= error[0] %> </p>
               </div>
             <button type="submit" class="btn btn-dark">Register</button>
           </form>
