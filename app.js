@@ -16,8 +16,6 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 const RememberMeStrategy = require("passport-remember-me").Strategy;
 
-let validationError = "";
-
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -188,7 +186,7 @@ app.post("/register",
     })
   }),
   check('username').isEmail(),
-  check('password').isLength({ min: 8 }).withMessage("Password must be at least 8 chars long")
+  check('password').isLength({ min: 8 }).withMessage("Password must be at least 8 characters long")
   .matches(/\d/).withMessage("Password must also contain a number")
   .matches(/[A-Z]/).withMessage("Password must also contain at least one uppercase letter")
 ], (req, res, next) => {
@@ -238,27 +236,6 @@ function(req, res, next) {
 function(req, res) {
   res.redirect('/welcome');
 });
-
-
-// app.post("/login", function(req, res, next){
-//
-// const user = new User({
-//   username: req.body.username,
-//   password: req.body.password
-// });
-//
-// passport.authenticate('local', function(err, user, info) {
-//     if (err) { return next(err); }
-//     if (!user) {
-//       validationError = "Incorrect Username and/or Password";
-//       return res.redirect('/login'); }
-//     req.logIn(user, function(err) {
-//       if (err) { return next(err); }
-//       validationError = ""; //setting error const back to ""
-//       return res.redirect('/welcome');
-//     });
-//   })(req, res, next);
-// });
 
 app.get("/logout", function (req, res){
   res.clearCookie("remember-me");
