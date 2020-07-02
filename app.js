@@ -1,6 +1,9 @@
 require("dotenv").config();
 const express = require("express");
+const cookieParser = require('cookie-parser')
 const bodyParser = require("body-parser");
+const flash = require("connect-flash");
+const utils = require("./utils");
 const mongoose = require("mongoose");
 const ejs = require("ejs");
 const passport = require("passport");
@@ -11,25 +14,25 @@ const { check, validationResult, body } = require("express-validator");
 
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
+const RememberMeStrategy = require("passport-remember-me").Strategy;
 
 let validationError = "";
 
 const app = express();
 
 app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({
-  extended: true
-}));
+app.use(cookieParser());
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
-
 app.use(session({
   secret: process.env.SECRET,
   resave: false,
   saveUninitialized: false
 }));
-
+app.use(flash());
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(passport.authenticate('remember-me'));
 
 mongoose.connect("mongodb://localhost:27017/userModelDB", {
   useNewUrlParser: true,
@@ -45,10 +48,16 @@ const userSchema = new mongoose.Schema({
   hobbies: [String]
 });
 
+const tokenSchema = new mongoose.Schema({
+  userId: String,
+  token: String
+})
+
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
 const User = new mongoose.model("User", userSchema);
+const Token = mongoose.model("Token", tokenSchema);
 
 passport.use(User.createStrategy());
 
@@ -61,6 +70,23 @@ passport.deserializeUser(function(id, done) {
     done(err, user);
   });
 });
+
+passport.use(new RememberMeStrategy(
+  function(token, done) {
+    Token.consume(token, function (err, user) {
+      if (err) { return done(err); }
+      if (!user) { return done(null, false); }
+      return done(null, user);
+    });
+  },
+  function(user, done) {
+    var token = utils.randomString(64);
+    Token.save(token, { userId: user.id }, function(err) {
+      if (err) { return done(err); }
+      return done(null, token);
+    });
+  }
+));
 
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -90,15 +116,15 @@ passport.use(new FacebookStrategy({
 ));
 
 app.get("/", function(req, res){
-  res.render("home");
+  res.render("home", {user: req.user});
 });
 
 app.get("/login", function(req, res){
-  res.render("login", {error: validationError});
+  res.render("login", {user: req.user, error: req.flash("error")});
 });
 
 app.get("/register", function(req, res){
-  res.render("register", {error: validationError});
+  res.render("register", {error: req.flash("error")});
 });
 
 app.get("/auth/google",
@@ -122,7 +148,7 @@ app.get('/auth/facebook/welcome',
     res.redirect('/welcome');
   });
 
-app.get("/welcome", function (req, res) {
+app.get("/welcome", ensureAuthenticated, function (req, res) {
   res.render("welcome", {userHobbies: req.user.hobbies, user: req.user.name});
   });
 
@@ -173,14 +199,13 @@ const errorFormatter = ({ location, msg, param, value, nestedErrors }) => {
   const err = validationResult(req).formatWith(errorFormatter);
   if (!err.isEmpty()) {
     console.log(err.array());
-    validationError = err.array({ onlyFirstError: true });
+    req.flash("error", err.array({ onlyFirstError: true }));
     res.redirect("/register")
   } else {
 
 User.register({username: req.body.username}, req.body.password, function(err, user){
   if (err) {
     console.log(err);
-    validationError = err;
     res.redirect("/register");
   } else {
     validationError = ""; //setting error const back to ""
@@ -193,28 +218,50 @@ User.register({username: req.body.username}, req.body.password, function(err, us
 
 });
 
-app.post("/login", function(req, res, next){
+app.post("/login",
+passport.authenticate('local', {failureRedirect: '/login', failureFlash: "Invalid Username or Password"}),
+function(req, res, next) {
 
-const user = new User({
-  username: req.body.username,
-  password: req.body.password
+  // issue a remember me cookie if the option was checked
+  if (!req.body.remember_me) { return next(); }
+
+  var token = new Token({
+    userId: req.user.id,
+    token: utils.randomString(64)
+  })
+  token.save(function(err) {
+    if (err) { return done(err); }
+    res.cookie('remember_me', token, { path: '/welcome', httpOnly: true, maxAge: 604800000 }); // 7 days
+    return next();
+  });
+},
+function(req, res) {
+  res.redirect('/welcome');
 });
 
-passport.authenticate('local', function(err, user, info) {
-    if (err) { return next(err); }
-    if (!user) {
-      validationError = "Incorrect Username and/or Password";
-      return res.redirect('/login'); }
-    req.logIn(user, function(err) {
-      if (err) { return next(err); }
-      validationError = ""; //setting error const back to ""
-      return res.redirect('/welcome');
-    });
-  })(req, res, next);
-});
 
+// app.post("/login", function(req, res, next){
+//
+// const user = new User({
+//   username: req.body.username,
+//   password: req.body.password
+// });
+//
+// passport.authenticate('local', function(err, user, info) {
+//     if (err) { return next(err); }
+//     if (!user) {
+//       validationError = "Incorrect Username and/or Password";
+//       return res.redirect('/login'); }
+//     req.logIn(user, function(err) {
+//       if (err) { return next(err); }
+//       validationError = ""; //setting error const back to ""
+//       return res.redirect('/welcome');
+//     });
+//   })(req, res, next);
+// });
 
 app.get("/logout", function (req, res){
+  res.clearCookie("remember-me");
   req.logout();
   res.redirect("/");
 });
@@ -222,3 +269,8 @@ app.get("/logout", function (req, res){
 app.listen(3000, function() {
   console.log("Server started on port 3000");
 });
+
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) { return next(); }
+  res.redirect('/login')
+}

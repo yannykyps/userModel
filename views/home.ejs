@@ -7,8 +7,15 @@
     <h1 class="display-3">User Model</h1>
     <p class="lead">Simple user model using passport-local-mongoose, google & facebook</p>
     <hr>
-    <a class="btn btn-light btn-lg" href="/register" role="button">Register</a>
-    <a class="btn btn-dark btn-lg" href="/login" role="button">Login</a>
+    <% if (!user) { %>
+      <a class="btn btn-light btn-lg" href="/register" role="button">Register</a>
+      <a class="btn btn-dark btn-lg" href="/login" role="button">Login</a>
+		<% } else { %>
+      <p>You are Still Logged in</p>
+      <a class="btn btn-dark btn-lg" href="/welcome" role="button">Go To Profile</a>
+      <a class="btn btn-light btn-lg" href="/logout" role="button">Log Out</a>
+		<% } %>
+
 
   </div>
 </div>
